@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  latin-learn progress sync — DynamoDB table, Lambda and HTTP API with a Cognito JWT authorizer.
+  Deployed by `scripts/aws.sh api`; the Lambda code is uploaded by the same command.
+
+# The stack owns everything here. The Cognito user pool and app client are NOT owned: they are
+# shared with another app and passed in as parameters (values come from .env.local, never the repo).
+#
+# The table is Retain on delete and on replacement: a stack rollback or a rename must never take
+# the learner's progress with it.
+
+Parameters:
+  UserPoolId:
+    Type: String
+    Description: Cognito user pool id (<region>_xxxx)
+  UserPoolClientId:
+    Type: String
+    Description: Public app client id — the ID token's `aud`
+  AllowedOrigin:
+    Type: String
+    Default: https://latin.lesnik.me
+  DevOrigin:
+    Type: String
+    Default: http://localhost:3000
+    Description: npm run dev:auth origin (a registered Cognito callback)
+  TableName:
+    Type: String
+    Default: latin-progress
+  FunctionName:
+    Type: String
+    Default: latin-progress-api
+
+Resources:
+  Table:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: PK, AttributeType: S}
+        - {AttributeName: SK, AttributeType: S}
+      KeySchema:
+        - {AttributeName: PK, KeyType: HASH}
+        - {AttributeName: SK, KeyType: RANGE}
+      TimeToLiveSpecification: {AttributeName: ttl, Enabled: true}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - {Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: sts:AssumeRole}
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: progress-table
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [dynamodb:Query, dynamodb:UpdateItem, dynamodb:PutItem, dynamodb:BatchWriteItem]
+                Resource: !GetAtt Table.Arn
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${FunctionName}"
+      RetentionInDays: 30
+
+  # Placeholder code: `scripts/aws.sh api` replaces it with backend/{index,handler}.mjs right after
+  # the stack deploys. CloudFormation never touches the code again unless ZipFile changes.
+  Function:
+    Type: AWS::Lambda::Function
+    DependsOn: LogGroup
+    Properties:
+      FunctionName: !Ref FunctionName
+      Runtime: nodejs24.x
+      Architectures: [arm64]
+      Handler: index.handler
+      MemorySize: 256
+      Timeout: 10
+      Role: !GetAtt FunctionRole.Arn
+      Environment:
+        Variables: {TABLE: !Ref Table}
+      Code:
+        ZipFile: |
+          exports.handler = async () => ({statusCode: 503, body: '{"error":"code not uploaded yet"}'});
+
+  Api:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Ref FunctionName
+      ProtocolType: HTTP
+      CorsConfiguration:
+        # Authorization must be listed: the browser preflights every request carrying a bearer token.
+        AllowOrigins: [!Ref AllowedOrigin, !Ref DevOrigin]
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+        AllowCredentials: false
+        MaxAge: 3600
+
+  # The gateway verifies signature, issuer, audience and expiry before the Lambda runs.
+  # The client sends the Cognito ID token, whose `aud` is the app client id.
+  Authorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref Api
+      AuthorizerType: JWT
+      Name: cognito-jwt
+      IdentitySource: ["$request.header.Authorization"]
+      JwtConfiguration:
+        Audience: [!Ref UserPoolClientId]
+        Issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPoolId}"
+
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt Function.Arn
+      PayloadFormatVersion: "2.0"
+
+  StateRoute:     {Type: AWS::ApiGatewayV2::Route, Properties: {ApiId: !Ref Api, RouteKey: "GET /state",      Target: !Sub "integrations/${Integration}", AuthorizationType: JWT, AuthorizerId: !Ref Authorizer}}
+  EventsRoute:    {Type: AWS::ApiGatewayV2::Route, Properties: {ApiId: !Ref Api, RouteKey: "POST /events",    Target: !Sub "integrations/${Integration}", AuthorizationType: JWT, AuthorizerId: !Ref Authorizer}}
+  BootstrapRoute: {Type: AWS::ApiGatewayV2::Route, Properties: {ApiId: !Ref Api, RouteKey: "POST /bootstrap", Target: !Sub "integrations/${Integration}", AuthorizationType: JWT, AuthorizerId: !Ref Authorizer}}
+  ResetRoute:     {Type: AWS::ApiGatewayV2::Route, Properties: {ApiId: !Ref Api, RouteKey: "POST /reset",     Target: !Sub "integrations/${Integration}", AuthorizationType: JWT, AuthorizerId: !Ref Authorizer}}
+
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref Api
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings: {ThrottlingBurstLimit: 50, ThrottlingRateLimit: 20}
+
+  InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref Function
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*"
+
+Outputs:
+  ApiEndpoint:
+    Description: VITE_API_BASE (no trailing slash)
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com"
+  TableName:
+    Value: !Ref Table
+  FunctionName:
+    Value: !Ref Function
