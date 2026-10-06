@@ -6,7 +6,7 @@
  * Shape (also what the backend's "facts" kind assembles in GET /state):
  *   { [lesson]: { [key]: { v: <json>, at: <ISO> } } }      lesson "0" = course-wide (review cards)
  *
- * Keys: open · sec:<i> · chk:<hw|dw><i> · note:<k> · val:<k> · ex:<exerciseId> · card:<latin>
+ * Keys: open · sec:<i> · chk:<hw|dw><i> · note:<k> · val:<k> · ex:<exerciseId> · card:<latin> · drill:<drill>:<item>
  *
  * Every write is one fact event {type:"fact", lesson, key, v, at}; the backend keeps it
  * last-write-wins by `at` (ISO strings order lexically), so a stale device never overwrites a

@@ -1,5 +1,7 @@
 /* Content validator for src/lessons — run with `npm run check`. Exits 1 on any issue. */
 import { LESSONS } from '../src/lessons/index.ts';
+import { STRESS_WORDS, wordKey } from '../src/practice/stressWords.ts';
+import { stressOf } from '../src/practice/stressRule.ts';
 
 const issues: string[] = [];
 const ids = new Set<string>();
@@ -27,5 +29,16 @@ LESSONS.forEach((l, i) => {
   walk(l, `L${l.id}`);
 });
 
+// Practice: stress drill — every stated stress must follow from the syllables + macrons.
+const words = new Set<string>();
+STRESS_WORDS.forEach(w => {
+  const k = wordKey(w);
+  if (words.has(k.toLowerCase())) issues.push(`stress drill: duplicate word ${k}`);
+  words.add(k.toLowerCase());
+  const r = stressOf(w.syll);
+  if (r.index !== w.stress) issues.push(`stress drill: ${w.syll.join('-')} has stress ${w.stress}, rule gives ${r.index} (${r.reason.kind})`);
+  if (w.syll.some(s => !s)) issues.push(`stress drill: empty syllable in ${w.syll.join('-')}`);
+});
+
 if (issues.length) { console.error(issues.join('\n')); process.exit(1); }
-console.log(`content ok — ${LESSONS.length} lessons, ${ids.size} exercises`);
+console.log(`content ok — ${LESSONS.length} lessons, ${ids.size} exercises, ${STRESS_WORDS.length} stress-drill words`);

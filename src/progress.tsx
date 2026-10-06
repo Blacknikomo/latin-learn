@@ -102,6 +102,9 @@ interface Ctx {
   setFact: (lesson: number, key: string, v: unknown) => void;
   cards: Record<string, CardBox>;
   setCard: (la: string, v: CardBox) => void;
+  /** Practice drills: Leitner boxes keyed `<drill>:<item>` (facts `drill:<drill>:<item>`, lesson 0). */
+  drills: Record<string, CardBox>;
+  setDrill: (key: string, v: CardBox) => void;
   quiz: QuizHistory;
   status: SyncStatus;
   resetLocal: () => void;
@@ -154,13 +157,19 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(() => {
     const { facts, quiz } = models;
     const cards: Record<string, CardBox> = {};
-    for (const [k, f] of Object.entries(facts.data[String(GLOBAL)] ?? {})) if (k.startsWith('card:')) cards[k.slice(5)] = f.v as CardBox;
+    const drills: Record<string, CardBox> = {};
+    for (const [k, f] of Object.entries(facts.data[String(GLOBAL)] ?? {})) {
+      if (k.startsWith('card:')) cards[k.slice(5)] = f.v as CardBox;
+      else if (k.startsWith('drill:')) drills[k.slice(6)] = f.v as CardBox;
+    }
     return {
       version,
       lesson: id => deriveLesson(facts.data, id),
       setFact: (lesson, key, v) => { facts.set(lesson, key, v); bump(); },
       cards,
       setCard: (la, v) => { facts.set(GLOBAL, `card:${la}`, v); bump(); },
+      drills,
+      setDrill: (key, v) => { facts.set(GLOBAL, `drill:${key}`, v); bump(); },
       quiz,
       status,
       resetLocal: () => { facts.progress.resetLocal(); quiz.progress.resetLocal(); bump(); },

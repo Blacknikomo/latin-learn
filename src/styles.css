@@ -352,6 +352,23 @@ textarea:focus, .pron input:focus, .parse__w select:focus { outline: none; borde
 .choice__opt:hover { border-color: var(--ink-2); }
 .choice__opt.is-sel { border-color: var(--accent); background: var(--accent-soft); }
 
+/* ---------- practice ---------- */
+.practice { max-width: 860px; margin: 0 auto; }
+.practice h1 { margin: 10px 0 8px; }
+.drills { list-style: none; margin: 24px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.drill-card { display: flex; flex-direction: column; gap: 6px; height: 100%; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); text-decoration: none; }
+.drill-card:hover { border-color: var(--ink-2); }
+.drill-card__title { font-family: var(--serif); font-size: 1.3rem; font-weight: 500; }
+.drill-card__desc { color: var(--ink-2); font-size: .95rem; }
+.drill-card__foot { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 8px; }
+.drill__stats { margin: 4px 0 0; }
+.drill { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.drill__word { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid transparent; border-radius: var(--r-sm); }
+.drill__word.is-right { border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.drill__word.is-wrong { border-color: color-mix(in srgb, var(--bad) 35%, transparent); background: var(--bad-soft); }
+.drill__why { color: var(--ink-2); }
+.syll:disabled { cursor: default; }
+
 /* ---------- review ---------- */
 .review { max-width: 540px; margin: 0 auto; }
 .review h1 { margin: 10px 0 8px; }

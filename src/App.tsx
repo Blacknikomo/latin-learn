@@ -4,6 +4,7 @@ import { LESSONS } from './lessons';
 import { Home } from './pages/Home';
 import { LessonPage } from './pages/Lesson';
 import { Review } from './pages/Review';
+import { Practice, StressDrill } from './pages/Practice';
 import { useMode } from './components/Latin';
 import { SyncBadge } from './components/SyncBadge';
 
@@ -30,6 +31,10 @@ export default function App() {
     if (i >= 0) page = <LessonPage key={LESSONS[i].id} lesson={LESSONS[i]} prev={LESSONS[i - 1]} next={LESSONS[i + 1]} />;
   } else if (hash.startsWith('#/review')) {
     page = <Review />;
+  } else if (hash.startsWith('#/practice/stress')) {
+    page = <StressDrill />;
+  } else if (hash.startsWith('#/practice')) {
+    page = <Practice />;
   }
 
   return (
@@ -38,6 +43,7 @@ export default function App() {
         <a href="#/" className="top__brand"><span className="top__logo" aria-hidden="true">L</span>{ui('appTitle')}</a>
         <a href="#/" className={'top__link' + (hash === '#/' ? ' is-on' : '')}>{ui('course')}</a>
         <a href="#/review" className={'top__link' + (hash.startsWith('#/review') ? ' is-on' : '')}>{ui('review')}</a>
+        <a href="#/practice" className={'top__link' + (hash.startsWith('#/practice') ? ' is-on' : '')}>{ui('practice')}</a>
         <div className="top__tools">
           <SyncBadge />
           <div className="seg" role="group" aria-label={ui('pronunciation')}>

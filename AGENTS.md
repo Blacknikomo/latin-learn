@@ -26,7 +26,8 @@ src/
 │   ├── Blocks.tsx        # every block renderer + the BlockView dispatcher
 │   ├── Latin.tsx         # <La>, SpeakButton, pronunciation-mode context
 │   └── Rich.tsx          # inline markup renderer
-├── pages/                # Home (course grid), Lesson (agenda + timer), Review (Leitner flashcards)
+├── pages/                # Home (course grid), Lesson (agenda + timer), Review (Leitner flashcards), Practice (drill hub + drills)
+├── practice/             # drill data + logic: stressRule.ts (stress rule, shared with the validator), stressWords.ts (stress-drill bank)
 └── lessons/
     ├── index.ts          # LESSONS = [l01 … l09] in course order
     └── l01.ts … l09.ts   # one file per session; l01.ts is the reference lesson
@@ -75,6 +76,15 @@ scripts/fake-sync-server.mjs  # in-memory progress API for e2e tests (quiz + fac
 - **New lesson:** create `src/lessons/lNN.ts` exporting a `Lesson` (copy the shape of `l01.ts`), add it to `lessons/index.ts`, create/update the matching vault Module note.
 - **New block kind:** add the variant to `Block` in `types.ts`, a renderer + `case` in `BlockView` (`Blocks.tsx`), UI strings in `i18n.tsx` (all three languages), styles in `styles.css`, a row in §3 above, and an ADR in the vault if it changes the content contract.
 - **New UI string:** add to `UI` in `i18n.tsx` with en/de/ru.
+
+## 4a. Practice (`#/practice`)
+
+Course-wide drills outside the 60-min sessions, third top-nav item after Course and Review.
+
+- **Stress drill** (`#/practice/stress`, from session 1): word bank in `src/practice/stressWords.ts` — rows `[syllables, stressIndex, en, de, ru]`. Rounds of 20: missed words first, then unseen, then due by Leitner box (same 0/1/3/7/14-day spacing as Review). After each click the rule explanation is generated from `stressRule.ts`.
+- Syllabify with the conventions in `stressRule.ts` (closed syllable = ends in a consonant; stop + l/r stay together; qu/gu = one consonant). `npm run check` recomputes every stress from syllables + macrons, so a missing macron in the penult fails the check.
+- Progress: facts `drill:<drill>:<item>` on lesson `0` (`useProgress().drills / setDrill`), answers under topic `P/p-stress`.
+- **New drill:** data + logic in `src/practice/`, a page component in `pages/Practice.tsx` (route in `App.tsx`), a card on the hub, UI strings in `i18n.tsx`, a check in `scripts/check-content.ts`.
 
 ## 5. Validation (run before committing)
 
